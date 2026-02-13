@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crypto Price Alerter</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+      background: #0d1117;
+      color: #c9d1d9;
+      padding: 24px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    h1 { color: #58a6ff; margin-bottom: 24px; font-size: 1.5rem; }
+    h2 { color: #8b949e; margin-bottom: 12px; font-size: 1.1rem; }
+
+    .form-section {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .form-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .form-group label {
+      font-size: 0.8rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    input, select {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      color: #c9d1d9;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: #58a6ff; }
+    input[type="text"] { width: 340px; }
+    input[type="number"] { width: 140px; }
+    select { width: 130px; }
+
+    button {
+      background: #238636;
+      color: #fff;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    button:hover { background: #2ea043; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-delete {
+      background: #da3633;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+    }
+    .btn-delete:hover { background: #f85149; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th {
+      background: #21262d;
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 0.8rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    td {
+      padding: 10px 12px;
+      border-top: 1px solid #21262d;
+      font-size: 0.85rem;
+    }
+    tr:hover td { background: #1c2128; }
+
+    .chain-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .chain-solana { background: #14f19533; color: #14f195; }
+    .chain-ethereum { background: #627eea33; color: #627eea; }
+
+    .direction-above { color: #3fb950; }
+    .direction-below { color: #f85149; }
+
+    .price { font-family: monospace; color: #f0f6fc; }
+    .addr { font-family: monospace; font-size: 0.8rem; color: #8b949e; }
+    .empty { text-align: center; padding: 40px; color: #484f58; }
+    .status-msg { margin-top: 8px; font-size: 0.85rem; min-height: 20px; }
+    .error { color: #f85149; }
+    .success { color: #3fb950; }
+  </style>
+</head>
+<body>
+  <h1>Crypto Price Alerter</h1>
+
+  <div class="form-section">
+    <h2>Create Alert</h2>
+    <form id="alert-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Chain</label>
+          <select id="chain">
+            <option value="solana">Solana</option>
+            <option value="ethereum">Ethereum</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Token Address</label>
+          <input type="text" id="token-address" placeholder="Token mint / contract address" required>
+        </div>
+        <div class="form-group">
+          <label>Threshold ($)</label>
+          <input type="number" id="threshold" step="any" min="0" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label>Direction</label>
+          <select id="direction">
+            <option value="above">Above</option>
+            <option value="below">Below</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button type="submit" id="submit-btn">Add Alert</button>
+        </div>
+      </div>
+    </form>
+    <div class="status-msg" id="form-status"></div>
+  </div>
+
+  <h2>Active Alerts</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Chain</th>
+        <th>Token</th>
+        <th>Name</th>
+        <th>Current Price</th>
+        <th>Threshold</th>
+        <th>Direction</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="alerts-body">
+      <tr><td colspan="7" class="empty">No alerts yet</td></tr>
+    </tbody>
+  </table>
+
+  <script>
+    const form = document.getElementById('alert-form');
+    const formStatus = document.getElementById('form-status');
+    const alertsBody = document.getElementById('alerts-body');
+    const submitBtn = document.getElementById('submit-btn');
+
+    function truncateAddr(addr) {
+      if (addr.length <= 16) return addr;
+      return addr.slice(0, 8) + '...' + addr.slice(-6);
+    }
+
+    function formatPrice(price) {
+      if (price == null) return '—';
+      if (price >= 1) return '$' + price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+      return '$' + price.toFixed(6);
+    }
+
+    function renderAlerts(alerts) {
+      if (alerts.length === 0) {
+        alertsBody.innerHTML = '<tr><td colspan="7" class="empty">No alerts yet</td></tr>';
+        return;
+      }
+      alertsBody.innerHTML = alerts.map(a => `
+        <tr>
+          <td><span class="chain-badge chain-${a.chain}">${a.chain}</span></td>
+          <td class="addr" title="${a.token_address}">${truncateAddr(a.token_address)}</td>
+          <td>${a.token_name || '—'}</td>
+          <td class="price">${formatPrice(a.last_price)}</td>
+          <td class="price">${formatPrice(a.threshold_price)}</td>
+          <td class="direction-${a.direction}">${a.direction}</td>
+          <td><button class="btn-delete" onclick="deleteAlert(${a.id})">Delete</button></td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadAlerts() {
+      try {
+        const res = await fetch('/api/alerts');
+        const alerts = await res.json();
+        renderAlerts(alerts);
+      } catch (err) {
+        console.error('Failed to load alerts:', err);
+      }
+    }
+
+    async function deleteAlert(id) {
+      try {
+        await fetch(`/api/alerts/${id}`, { method: 'DELETE' });
+        loadAlerts();
+      } catch (err) {
+        console.error('Failed to delete alert:', err);
+      }
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      formStatus.textContent = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Adding...';
+
+      const body = {
+        chain: document.getElementById('chain').value,
+        token_address: document.getElementById('token-address').value.trim(),
+        threshold_price: parseFloat(document.getElementById('threshold').value),
+        direction: document.getElementById('direction').value,
+      };
+
+      try {
+        const res = await fetch('/api/alerts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          formStatus.className = 'status-msg error';
+          formStatus.textContent = data.error || 'Failed to create alert';
+        } else {
+          formStatus.className = 'status-msg success';
+          formStatus.textContent = 'Alert created successfully';
+          form.reset();
+          loadAlerts();
+        }
+      } catch (err) {
+        formStatus.className = 'status-msg error';
+        formStatus.textContent = 'Network error';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Add Alert';
+      }
+    });
+
+    // Initial load + auto-refresh every 30s
+    loadAlerts();
+    setInterval(loadAlerts, 30000);
+  </script>
+</body>
+</html>

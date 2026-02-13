@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "WebFetch(domain:api.dexscreener.com)",
+      "WebFetch(domain:api.jup.ag)",
+      "WebSearch",
+      "WebFetch(domain:hub.jup.ag)",
+      "WebFetch(domain:dev.jup.ag)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(sqlite3:*)"
+    ]
+  }
+}

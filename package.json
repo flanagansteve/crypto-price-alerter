@@ -1,0 +1,16 @@
+{
+  "name": "cryptocurrency-alerter",
+  "version": "1.0.0",
+  "description": "Cryptocurrency price alerter with email notifications",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11",
+    "dotenv": "^16",
+    "ethers": "^6",
+    "express": "^4",
+    "resend": "^4"
+  }
+}
